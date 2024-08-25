@@ -1,5 +1,4 @@
 import os
-import re
 import sqlparse
 
 def to_camel_case(snake_str):
@@ -17,23 +16,28 @@ def extract_columns(sql_query):
         if select_seen:
             if isinstance(token, sqlparse.sql.IdentifierList):
                 for identifier in token.get_identifiers():
-                    stringList= str(identifier).strip().split('--')
-                    if len(stringList)>1:
-                        annotations.append(stringList[1].strip())
+                    string_list= str(identifier).strip().split('--')
+                    if len(string_list)>1:
+                        annotations.append(string_list[1].strip())
                     else:
                         annotations.append(None)
-                    columns.append(stringList[0])
+                    col_name = string_list[0].strip()
+                    if(' AS ' in col_name.upper()):
+                        col_name = col_name.upper().split(' AS ', 1)[1].strip()
+                    elif('.' in col_name):
+                        col_name = col_name.split('.')[-1].strip()
+                    columns.append(col_name)
             elif isinstance(token, sqlparse.sql.Identifier):
                 columns.append(str(token).strip())
             elif token.ttype is sqlparse.tokens.Keyword:
                 break
         if token.ttype is sqlparse.tokens.DML and token.value.upper() =='SELECT':
             select_seen = True
-    return [columns,annotations]
+    return [columns, annotations]
 
-def generate_java_class(class_name, columns,annotations):
+def generate_java_class(class_name, columns, annotations):
     class_template = f"public class {class_name} {{\n"
-    for col,anno in zip(columns,annotations):
+    for col,anno in zip(columns, annotations):
         camel = to_camel_case(col) 
         if anno:
             class_template += f"    private String {camel};  //{anno}\n"
@@ -59,10 +63,9 @@ def process_files_in_folder(input_folder,output_folder):
     for filename in os.listdir(input_folder):
         if filename.endswith(".sql") or filename.endswith(".SQL") or filename.endswith(".txt") or filename.endswith(".TXT"):
             file_path = os.path.join(input_folder, filename)
-            with open(file_path, 'r') as file:
+            with open(file_path, 'r', encoding='utf-8') as file:
                 sql_query = file.read()
                 [columns ,annotations]= extract_columns(sql_query)
-                print(columns,annotations)
                 class_name = os.path.splitext(filename)[0].capitalize()
                 java_class_content = generate_java_class(class_name, columns,annotations)
                 output_java_file_path = os.path.join(output_folder, f"{class_name}.java")
@@ -71,8 +74,8 @@ def process_files_in_folder(input_folder,output_folder):
                 print(f"Generated {output_java_file_path}")
 
 def main():
-    input_folder = 'before'  # Folder containing your SQL and text files
-    output_folder = 'after'  # Folder where the Java files will be saved
+    input_folder = 'before'  # 바꾸고 싶은 파일 폴더
+    output_folder = 'java'  # 바뀌고 난 파일 폴더
     process_files_in_folder(input_folder,output_folder)
 
 if __name__ == "__main__":
