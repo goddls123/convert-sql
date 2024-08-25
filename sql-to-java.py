@@ -1,12 +1,29 @@
 import os
 import sqlparse
+import sys
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
 
 def to_camel_case(snake_str):
     components = snake_str.split('_')
     return components[0].lower() + ''.join(x.title() for x in components[1:])
 
+def parse_identifier(identifier):
+    parts = identifier.split('--')
+    col_name = parts[0].strip()
 
-def extract_columns(sql_query):
+    if ' AS ' in col_name.upper():
+        col_name = col_name.upper().split(' AS ', 1)[1].strip()
+    elif '.' in col_name:
+        col_name = col_name.split('.')[-1].strip()
+
+    annotation = parts[1].strip() if len(parts) > 1 else None
+    return col_name, annotation
+
+def extract_columns_and_annotations(sql_query):
     parsed = sqlparse.parse(sql_query)
     statement = parsed[0]
     columns = []
@@ -16,24 +33,18 @@ def extract_columns(sql_query):
         if select_seen:
             if isinstance(token, sqlparse.sql.IdentifierList):
                 for identifier in token.get_identifiers():
-                    string_list= str(identifier).strip().split('--')
-                    if len(string_list)>1:
-                        annotations.append(string_list[1].strip())
-                    else:
-                        annotations.append(None)
-                    col_name = string_list[0].strip()
-                    if(' AS ' in col_name.upper()):
-                        col_name = col_name.upper().split(' AS ', 1)[1].strip()
-                    elif('.' in col_name):
-                        col_name = col_name.split('.')[-1].strip()
+                    col_name, annotation = parse_identifier(str(identifier).strip())
                     columns.append(col_name)
+                    annotations.append(annotation)
             elif isinstance(token, sqlparse.sql.Identifier):
-                columns.append(str(token).strip())
+                col_name, annotation = parse_identifier(str(token).strip())
+                columns.append(col_name)
+                annotations.append(annotation)
             elif token.ttype is sqlparse.tokens.Keyword:
                 break
         if token.ttype is sqlparse.tokens.DML and token.value.upper() =='SELECT':
             select_seen = True
-    return [columns, annotations]
+    return columns, annotations
 
 def generate_java_class(class_name, columns, annotations):
     class_template = f"public class {class_name} {{\n"
@@ -61,17 +72,17 @@ def process_files_in_folder(input_folder,output_folder):
         os.makedirs(output_folder)
 
     for filename in os.listdir(input_folder):
-        if filename.endswith(".sql") or filename.endswith(".SQL") or filename.endswith(".txt") or filename.endswith(".TXT"):
+        if filename.lower().endswith(('.sql', '.txt')):
             file_path = os.path.join(input_folder, filename)
             with open(file_path, 'r', encoding='utf-8') as file:
                 sql_query = file.read()
-                [columns ,annotations]= extract_columns(sql_query)
+                columns ,annotations= extract_columns_and_annotations(sql_query)
                 class_name = os.path.splitext(filename)[0].capitalize()
                 java_class_content = generate_java_class(class_name, columns,annotations)
                 output_java_file_path = os.path.join(output_folder, f"{class_name}.java")
                 with open(output_java_file_path, 'w') as java_file:
                     java_file.write(java_class_content)
-                print(f"Generated {output_java_file_path}")
+                # print(f"Generated {output_java_file_path}")
 
 def main():
     input_folder = 'before'  # 바꾸고 싶은 파일 폴더

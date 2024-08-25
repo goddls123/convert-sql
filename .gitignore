@@ -1,2 +1,7 @@
 /before
 .DS_Store
+/dist
+/build
+
+**.exe
+**.exe.**
