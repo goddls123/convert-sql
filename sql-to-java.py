@@ -87,6 +87,17 @@ def process_files_in_folder(input_folder,output_folder):
 def main():
     input_folder = 'before'  # 바꾸고 싶은 파일 폴더
     output_folder = 'java'  # 바뀌고 난 파일 폴더
+
+    # Check if the input folder exists
+    if not os.path.exists(input_folder):
+        print(f"The input folder '{input_folder}' does not exist. Exiting.")
+        return
+    
+    # Check if the input folder contains any files
+    if not os.listdir(input_folder):
+        print(f"The input folder '{input_folder}' is empty. Exiting.")
+        return
+    
     process_files_in_folder(input_folder,output_folder)
 
 if __name__ == "__main__":

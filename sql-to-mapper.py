@@ -9,7 +9,7 @@ def remove_comments(sql):
     sql = re.sub(r'--.*', '', sql)
     # Remove multi-line comments starting with /* and ending with */
     sql = re.sub(r'/\*.*?\*/', '', sql, flags=re.DOTALL)
-    return sql
+    return sql.strip()
 
 def convert_to_mybatis_mapper(sql):
     """Convert SQL to MyBatis Mapper format with indentation."""
@@ -39,14 +39,27 @@ def process_files_in_folder(input_folder,output_folder):
                 sql_query = file.read()
                 sql_content = remove_comments(sql_query)
                 mapper = convert_to_mybatis_mapper(sql_content)
+
                 output_filename = os.path.splitext(filename)[0].capitalize()
                 output_mapper_file_path = os.path.join(output_folder, f"{output_filename}.xml")
+
                 with open(output_mapper_file_path, 'w') as mapper_file:
                     mapper_file.write(mapper)
 
 def main():
     input_folder = 'before'  # 바꾸고 싶은 파일 폴더
     output_folder = 'sql'  # 바뀌고 난 파일 폴더
+
+    # Check if the input folder exists
+    if not os.path.exists(input_folder):
+        print(f"The input folder '{input_folder}' does not exist. Exiting.")
+        return
+    
+    # Check if the input folder contains any files
+    if not os.listdir(input_folder):
+        print(f"The input folder '{input_folder}' is empty. Exiting.")
+        return
+
     process_files_in_folder(input_folder,output_folder)
 
 if __name__ == "__main__":
